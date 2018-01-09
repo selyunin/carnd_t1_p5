@@ -19,14 +19,14 @@
 * Estimate a bounding box for vehicles detected.
 
 [//]: # (Image References)
-[image1]: ./examples/car_not_car.png
-[image2]: ./examples/HOG_example.jpg
-[image3]: ./examples/sliding_windows.jpg
-[image4]: ./examples/sliding_window.jpg
-[image5]: ./examples/bboxes_and_heat.png
-[image6]: ./examples/labels_map.png
-[image7]: ./examples/output_bboxes.png
-[video1]: ./project_video.mp4
+[image1]: ./output_images/image_1.png
+[image2]: ./output_images/image_2.png
+[image3]: ./output_images/image_3.png
+[image4]: ./output_images/image_4.png
+[image5]: ./output_images/image_5.png
+[image6]: ./output_images/image_6.png
+[image7]: ./output_images/image_7.png
+[image8]: ./output_images/image_8.png
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -34,48 +34,166 @@
 ---
 ### Writeup / README
 
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Vehicle-Detection/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
+#### 1. The Writeup file includes all the rubric points and how each one has been addressed.
 
-You're reading it!
+Note that the `jyputer-notebook` P5.ipynb also provides a thorough
+description of the project.
 
 ### Histogram of Oriented Gradients (HOG)
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in the first code cell of the IPython notebook (or in lines # through # of the file called `some_file.py`).  
+First I did a short dataset exploration: downloaded the data, 
+and extracted the archives in the corresponding directories.
+The datasets are formed as a combination of data from several sources
+(i.e. from KITTI and GTI datasets). I then read all image names from
+all the sub-directories for vehicles and non-vehicles and print the
+summary (see the `P5.ipynb` for more detailed output).
+Each image in the dataset is a 64x64 color image:
 
-I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
+I then print random images of vehicles as well as non-vehicles:
 
 ![alt text][image1]
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
-
-Here is an example using the `YCrCb` color space and HOG parameters of `orientations=8`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
-
-
 ![alt text][image2]
+
+I then split the data into training, validation and test sets,  using
+`train_test_split` function from `sklearn.cross_validation` to first split
+the data into training and (validation and test) sets. We then split
+validation and test sets. Note, then in order to detect what images
+are misclassified later, we both divide and shuffle image names.
+Before, I read images using cv2.imread, but in this way after
+shuffling it is not possible to identify what images were
+misclassified.
+
+In this project I use histogram of oriented gradients, the `hog` function from
+`skimage.feature` to find orientations of gradients in each cell of a
+specified size of image. Function `get_hog_features` takes image, size
+of a cell, cells per block and returns hog features of the image.
+Function `bin_spatial` takes image and returns spatial features (i.e.
+contiguous flattened array as image). Function `color_hist` creates
+color features (i.e. concatenates histograms of all color channels). 
+
+The function `extract_features` combines different feature extraction.
+Given an image name, we first read the file (we use `cv2.imread` and
+obtain *BGR* image, but in range 0 to 255. The problem with
+`matplotlib.image` is that it reads `*.png` files to the domain
+`[0,1]` and not to `[0, 255]`). We then convert the color space to the
+specified one, extract spatial and color features, if specified, and
+return all concatenated features.
+
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+Below are the example parameters we use to train the classifier. As we see
+in the implementation for video stream, we use two classifiers and
+then combine their predictions. 
+The one mentioned here performs pretty decent.
+The parameters has been found empirically, by choosing the parameters,
+and then evaluating the classifier.
+
+
+| Parameter        | Value         |
+|:----------------:|:-------------:| 
+| color_space      | 'YUV'         | 
+| orient           | 11            | 
+| pix_per_cell     | 8             | 
+| cell_per_block   | 2             | 
+| hog_channel      | 'ALL'         | 
+| spatial_size     | (16, 16)      | 
+| hist_bins        | 32            | 
+| spatial_feat     | True          | 
+| hist_feat        | True          | 
+| hog_feat         | True          | 
+
+
+Below I show hog features for  vehicles and non-vehicles from the dataset:
+
+
+![alt text][image3]
+
+
+![alt text][image4]
+
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+For training, validation and test data I then extracted features with
+the specified parameters (see the table above). I then stack all the features 
+into one vector and scale the features, in order to equalize impact of
+different features.
+
+As I used all available data for scaling, I then retrieved back pieces for
+training, validation and test.
+
+The classification problem in the project is binary -- either vehicle
+or non-vehicle. For vehicles our desired output is `1` and for
+non-vehicles is `0`. I prepared the corresponding y-values. 
+Additionally, I also created a random state and shuffle both features 
+and the corresponding image names, 
+to be able to backtrack what images are classified incorrectly.
+
+I then used LinearSVC end trained the classifier using prepared training
+data,  then check  the results on validation and test sets.
+
+In the Jyputer Notebook I also explored what the classifier has predicted wrong in the
+validation set: identified false positives (images that depict
+non-vehicles, but classifier marked them as vehicles) and false
+negatives (images of vehicles that were marked as non-vehicles by the
+classifier) and visualized the results.
+
+False positives and false negatives look as follows:
+
+![alt text][image5]
+
+
+![alt text][image6]
+
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
 
-![alt text][image3]
+When camera is mounted on a vehicle and records an image of a road,
+vehicles appear in different locations of the frame and in a different
+scale (depending on a distance). To account for this, we use sliding
+window search, where image is split in cells of different size and
+location (alternatively, several windows of different size are slided
+on an image and vehicle detection is performed in each image.
+
+The function `slide_window` returns a list of windows that are within
+the pre-specified start and stop coordinates in `x` and `y` and
+overlap by a given ratio. The function `draw_boxes` gets an image and
+a list of boxes coordinates and draws rectangles with the specified
+coordinates. `single_img_features` extracts features from a patch of
+an image. `search_windows` returns a list of windows, for which the
+classifier predicted presense of *vehicles*.
+
+Since it only make sense to search for vehicles in the region of a
+road, we define a method `get_window_coordinates` that identifies
+coordinates to restricts the search to the specified region of an
+image:
+
+`x_start_stop : [[None, None], [None, None], [None, None], [None, None]]`
+
+`y_start_stop : [[410, 442], [400, 464], [395, 491], [405, 533]]`
+
+`xy_window    : [(64, 64), (128, 128), (192, 192), (256, 256)]`
+
+`xy_overlap   : [(0.8, 0.8), (0.8, 0.8), (0.8, 0.8), (0.8, 0.8)]`
+
+The method `detect_vehicles` does the following: for each window size,
+start and stop coordinates, overlap ratio search for vehicles and
+obtain *on_windows* (where the classifier predicted presence of
+vehicle). We also draw *all_windows*, in which we searched for
+vehicles. We return two images, the one on which *on_windows* are
+shown, and the other one on which *all_windows* are shown.
+
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
-
-![alt text][image4]
+![alt text][image7]
 ---
 
 ### Video Implementation
