@@ -193,32 +193,82 @@ shown, and the other one on which *all_windows* are shown.
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
+Below is the output of the sliding window search for vehicles:
+
 ![alt text][image7]
+
+In order to optimize the prediction time, we restrict the search 
+to the region of the road. There is a lot of space for improvement,
+and I cover this in the discussion section.
+
 ---
 
 ### Video Implementation
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+
+Here's a [link to my video result](./project_video_out.mp4), also 
+uploaded to [youtube](https://youtu.be/i4znM6YLp_w).
 
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+As seen from the images that showcase the work of the pipeline, 
+the classifier also detects false
+positives. In order to reduce  those (with the aim to eliminate),
+we add one more dimension (the so-called *heat*) 
+to identify regions with the highest probability of
+vehicles. Function `add_heat` adds 1 for each box where classifier
+detected vehicles. Since vehicles are detected in overlapping windows
+(more likely then false-positives), the regions of vehicles are likely
+to have more heat, than sporadic false-positive outcomes. Function
+`apply_threshold` aims to eliminate false positives by zeroing out the
+heat pixels that are less then a specified bound. Function
+`draw_labeled_bboxes` takes image and labels and draws rectangles on
+the image for each label.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+![alt text][image8]
 
-### Here are six frames and their corresponding heatmaps:
+For video implementation, I re-implemented (i) data preparation and
+classifier training and (ii) vehicle detection modules into two parts:
+the classifier part and video processing system part. 
 
-![alt text][image5]
+First, given the parameters of features to use, the LinearSVC
+classifier is trained and evaluated, with the classifier, parameters
+and scaler stored in a pickle file.
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+Second, video processing system reads (possibly with more then one
+classifier) pickle files, load pre-trained classifiers and performs
+vehicle search in each image frame. To filter out false positives, I
+first threshold detected boxes, then used fixes size queue of `N`
+consecutive windows and then threshold the result again. This two way
+thresholding allows to reduce amount of false, positives, but false
+positives can occasionally appear on the final video. In my opinion
+this is in match with the project rubric "Your pipeline should perform
+reasonably well on the entire project video (somewhat wobbly or
+unstable bounding boxes are ok as long as you are identifying the
+vehicles most of the time with minimal false positives.)".
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
+The classifier subsystem is essentially the `ClassifierFit` class,
+which accepts a dictionary of parameters, extracts features taking
+into account parameters, and trains a LinearSVC. The classifier,
+scaler, and the parameters are then saved in a pickle file. Below, we
+train two classifiers, one for `YUV` and one for `YCrCb` color spaces.
 
-
+Video subsystem consist of three classes: the `Vehicle` class, which
+essentially does a running average filter of heat detected in each
+frame (identifying max probable locations of vehicles and eliminating
+false positives),
+`VehicleDetector` class, which does vehicle detection in
+`process_image` method. It also reads a set of classifiers, specified
+in `get_more_classifiers` method and uses several classifiers in
+`get_on_windows_v2` to detect vehicles (with the hope that false
+positives would appear in different locations of the frame, hence will
+be reduced). We apply thresholding twice, first to reject false
+positives in the current frame, and then to reject false positives
+over several consecutive frames).  `process_image` is run on each
+frame of the video. The `VideoHandler` class reads a video clip and
+feeds `VehicleDetector` with image frames.
 
 ---
 
@@ -226,5 +276,12 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
-
+First, although the final result identifies vehicles most of the time
+with minimum amount of false positives, it has some false positives
+and there is room for future work. It would be interested to see the 
+combination of traditional with the deep learning approach (the
+way I combined two SVC classifiers) and also use advanced methods for 
+false positives removal e.g. particle filtering. In order for the
+pipeline to work in real time, it should be optimized, re-implemented
+in C++ with GPU or FPGA acceleration support, which is a topic on its
+own. 
