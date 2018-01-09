@@ -36,7 +36,7 @@
 
 #### 1. The Writeup file includes all the rubric points and how each one has been addressed.
 
-Note that the `jyputer-notebook` P5.ipynb also provides a thorough
+Note that the `jyputer-notebook` [P5.ipynb](./P5.ipynb) also provides a thorough
 description of the project.
 
 ### Histogram of Oriented Gradients (HOG)
